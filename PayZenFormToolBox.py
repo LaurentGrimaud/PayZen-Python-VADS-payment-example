@@ -79,10 +79,18 @@ class PayZenFormToolBox:
   def ipn_pay(self, fields):
     if fields['vads_operation_type'] != 'DEBIT':
       raise Exception("Unhandled operation type "+fields['vads_operation_type'])
-    if fields['vads_trans_status'] in ['AUTHORISED', 'AUTHORISED_TO_VALIDATE']:
+    if fields['vads_trans_status'] in ['AUTHORISED', 'CAPTURED']:
       self.logger.info("IPN - Payment for trans_id {} is authorised!".format(fields['vads_trans_id']))
       return
-    raise Exception("Payment is not authorised - Given status is " + fields['vads_trans_status'])
+    if fields['vads_trans_status'] in ['REFUSED']:
+      raise PayZenPaymentRefused("Payment is not authorised - Given status is " + fields['vads_trans_status'])
+    if fields['vads_trans_status'] in ['ABANDONED', 'EXPIRED',  'CANCELED', 'NOT_CREATED']:
+      raise PayZenPaymentInvalidated("Payment is not authorised - Given status is " + fields['vads_trans_status'])
+    if fields['vads_trans_status'] in [ 'AUTHORISED_TO_VALIDATE',
+                                        'WAITING_AUTHORISATION',
+                                        'WAITING_AUTHORISATION_TO_VALIDATE',
+					'UNDER_VERIFICATION']:
+      raise PayZenPaymentPending("Payment is not yet authorised - Given status is " + fields['vads_trans_status'])
       
 
 
@@ -108,3 +116,13 @@ class PayZenFormToolBox:
       return 'Hello PayZen BO!'
 
     raise Exception("IPN action unhandled: " + fields['vads_url_check_src'])
+
+
+class PayZenPaymentRefused(Exception):
+  pass
+
+class PayZenPaymentInvalidated(Exception):
+  pass
+
+class PayZenPaymentPending(Exception):
+  pass
