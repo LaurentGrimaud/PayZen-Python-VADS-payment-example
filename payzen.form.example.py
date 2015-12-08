@@ -56,7 +56,7 @@ def form_payment():
 
 
 ######### IPN URL called by PayZen platform #########
-@payzen.route('/form_ipn', methods=['POST'])
+@payzen.route('/ipn', methods=['POST'])
 def form_ipn():
   try:
     data = request.form
