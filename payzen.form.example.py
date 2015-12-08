@@ -1,51 +1,67 @@
+ ##
+ # PayZen VADS payment example
+ # as a Flask application
+ #
+ # @depends Flask
+ # @link http://flask.pocoo.org/
+ #
+ # @version 0.2
+ # 
+ ####
 from flask import render_template
 from flask import Flask
 from flask import request
-from flask_cors import cross_origin
 
 from PayZenFormToolBox import *
 import calendar
 import time
 import logging
 
-
+# All log go to local file ./payzen_form.log
 logging.basicConfig(filename="payzen_form.log", level=logging.INFO)
 
 logger = logging.getLogger()
 
 payzen = Flask(__name__)
 
-#Account data
-shopId   = '[***CHANGE-ME***]'
-certTest = '[***CHANGE-ME***]'
-certProd = '[***CHANGE-ME***]'
-mode     = 'TEST'
-certProd = '[***CHANGE-ME***]'
-ipn_url  = '[***CHANGE-ME***]'
 
-payzenTB = PayZenFormToolBox(shopId, certTest, certProd, mode)
+payzenTB = PayZenFormToolBox(
+    '[***CHANGE-ME***]', // shopId
+    '[***CHANGE-ME***]', // certificate, TEST-version
+    '[***CHANGE-ME***]', // certificate, PRODUCTION-version
+    'TEST',              // TEST-mode toggle
+    logger               // logger object the toolbox must use
+    )
 
+# IPN url optionnal configuration
+ipn_url         = '[***CHANGE-ME***]'
+payzenTB.ipn_url    = ipn_url                            # Oerrides the IPN url configured in the PayZen back-office
+
+# Return url optionnal configuration
+return_url      = '[***CHANGE-ME***]'
+payzenTB.return_url = return_url                         # Overrides the return url configured in the PayZen back-office
+
+######### URL for the form generation ###########
 @payzen.route('/form_payment', methods=['GET'])
-@cross_origin()
 def form_payment():
-  payzenTB.shop_platform['ipn_url'] = ipn_url
 
-  #Payment data
-  amount   = 1000
-  currency = 978
-  trans_id = str(calendar.timegm(time.gmtime()))[-6:]
+  ## Payment data
+  amount   = 1000                                     # payment amount - Change-it to reflect your needs
+  currency = 978                                      # payment currency code - Change-it to reflect your needs
+  trans_id = str(calendar.timegm(time.gmtime()))[-6:] # a daily-unique transaction id - Change-it to reflect your needs
 
   form = payzenTB.form(trans_id, amount, currency)
 
   return render_template('./form_payment.html', form = form)
 
 
+######### IPN URL called by PayZen platform #########
 @payzen.route('/form_ipn', methods=['POST'])
-@cross_origin()
 def form_ipn():
   try:
     data = request.form
     response = payzenTB.ipn(data)
+    # No exception, the payment is valid and authorised
     # here the code for an accepted payment
     logger.info("Payment with trans_id {} is accepted, time to validate the order ".format(data['vads_trans_id']))
     return 'Notification processed!'
@@ -67,6 +83,12 @@ def form_ipn():
     logger.info("Payment with trans_id {} is in pending zone, time to mark the order as 'pending'".format(data['vads_trans_id']))
     return 'Notification processed!'
  
+
+######### URL for the 'return from payment' page ###########
+@payzen.route('/return', methods=['GET'])
+def return_from_payment():
+  return "Welcome back, dear Customer!"
+
 
 
 if __name__ == '__main__':
